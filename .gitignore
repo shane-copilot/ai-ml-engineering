@@ -1,0 +1,75 @@
+# Model files - too large for git
+*.gguf
+*.safetensors
+*.bin
+*.pth
+*.pt
+*.onnx
+
+# Model directories
+local_models/
+q3_zero_.8b/
+q3_zero_.8b_backup/
+
+# Build artifacts
+build/
+target/
+dist/
+*.o
+*.so
+*.a
+*.dylib
+*.dll
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv
+
+# Backup directories - archived work
+rust_approach_archived/
+ml_ai_engineering_backup*/
+archived_backups/
+before_rust/
+*_backup/
+*_backup*/
+
+# Training artifacts
+checkpoints/
+*.checkpoint
+wandb/
+lightning_logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# llama.cpp build
+llama.cpp/build/
+llama.cpp/models/
+llama.cpp/.git/
+
+# Test outputs
+*.txt
+!requirements.txt
+!README.md
+!*.md
+
+# Temporary files
+*.tmp
+*.log
+*.cache
+.pytest_cache/
+.env
+**/.env
