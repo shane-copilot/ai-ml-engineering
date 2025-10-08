@@ -10,6 +10,15 @@
 local_models/
 q3_zero_.8b/
 q3_zero_.8b_backup/
+q3_zero_.8b_BACKUP/
+
+# Kaggle training outputs - large files
+kaggle_training/*/output/
+kaggle_training/*_output/
+kaggle_training/*/checkpoint*/
+kaggle_training/*_upload/
+kaggle_training/kaggle_upload_temp/
+*.zip
 
 # Build artifacts
 build/
