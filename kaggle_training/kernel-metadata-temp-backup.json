@@ -1,0 +1,15 @@
+{
+  "id": "ericgross1/qwen3-0-8b-phase1-codealpaca-training",
+  "title": "Qwen3-0.8B Phase1 CodeAlpaca Training",
+  "code_file": "phase1_training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "ericgross1/qwen3-08b-coder-reasoning"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

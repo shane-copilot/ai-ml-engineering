@@ -1,0 +1,155 @@
+[
+  {
+    "id": "net_011",
+    "scenario": "Fix 'Destination Host Unreachable' when pinging local network devices",
+    "problem": "Can ping router but cannot reach other devices on same subnet, getting 'Destination Host Unreachable' errors",
+    "solution": "Diagnose ARP issues, check firewall rules, verify subnet configuration and routing",
+    "steps": [
+      "Verify you're on correct subnet: ip addr show - check if your IP matches network (e.g., 192.168.1.x/24)",
+      "Check ARP table for missing entries: ip neigh show or arp -a",
+      "Manually add ARP entry if needed: sudo ip neigh add 192.168.1.50 lladdr aa:bb:cc:dd:ee:ff dev eth0",
+      "Flush ARP cache to rebuild: sudo ip neigh flush all",
+      "Check if firewall is blocking ICMP: sudo iptables -L -v -n | grep icmp",
+      "Temporarily allow all ICMP: sudo iptables -I INPUT -p icmp -j ACCEPT && sudo iptables -I OUTPUT -p icmp -j ACCEPT",
+      "Verify routing table: ip route show - ensure local subnet route exists",
+      "Add route if missing: sudo ip route add 192.168.1.0/24 dev eth0",
+      "Check if target device's firewall is blocking: Try from another device on network",
+      "Use arping to test at Layer 2: sudo arping -I eth0 192.168.1.50",
+      "Check for IP conflicts: sudo arping -D -I eth0 192.168.1.50 (0 replies = no conflict)",
+      "Verify switch/router isn't blocking: Check switch port status and VLAN configuration",
+      "Test with broadcast ping: ping -b 192.168.1.255 (may reveal hidden devices)",
+      "Use tcpdump to see if packets leaving: sudo tcpdump -i eth0 icmp"
+    ],
+    "commands": ["ip", "arp", "iptables", "arping", "ping", "tcpdump"],
+    "packages": {
+      "debian_ubuntu": ["iproute2", "net-tools", "arping", "tcpdump"],
+      "arch": ["iproute2", "net-tools", "arping", "tcpdump"]
+    },
+    "complexity": "intermediate",
+    "tags": ["networking", "arp", "icmp", "troubleshooting", "connectivity", "firewall"]
+  },
+  {
+    "id": "net_012",
+    "scenario": "Set up split-tunnel VPN where only specific traffic goes through VPN",
+    "problem": "Want to route only work-related traffic through VPN while keeping personal traffic on regular connection",
+    "solution": "Configure policy-based routing to selectively route traffic based on destination or application",
+    "steps": [
+      "Connect to VPN normally (creates tun0 interface)",
+      "Check VPN interface and routes: ip addr show tun0 && ip route show table main",
+      "Delete default route through VPN: sudo ip route del default dev tun0",
+      "Add specific routes for work networks: sudo ip route add 10.0.0.0/8 dev tun0",
+      "Add routes for work servers: sudo ip route add 172.16.50.0/24 via 10.8.0.1 dev tun0",
+      "For application-based routing, create custom routing table: echo '200 vpn' | sudo tee -a /etc/iproute2/rt_tables",
+      "Add rules to use VPN table for specific apps: sudo ip rule add from 192.168.1.100 table vpn",
+      "Populate VPN routing table: sudo ip route add default dev tun0 table vpn",
+      "Mark traffic from specific application with iptables: sudo iptables -t mangle -A OUTPUT -p tcp --dport 443 -d 10.0.0.0/8 -j MARK --set-mark 1",
+      "Route marked traffic through VPN: sudo ip rule add fwmark 1 table vpn",
+      "For DNS split: Configure dnsmasq to send work domains to VPN DNS: server=/company.com/10.8.0.1",
+      "Verify routes: ip route get 10.0.1.1 (should use tun0) and ip route get 8.8.8.8 (should use eth0)",
+      "Test VPN routing: curl --interface tun0 ifconfig.me vs curl --interface eth0 ifconfig.me",
+      "Make persistent by adding to /etc/network/if-up.d/ script or NetworkManager dispatcher"
+    ],
+    "commands": ["ip", "iptables", "curl", "dnsmasq"],
+    "packages": {
+      "debian_ubuntu": ["iproute2", "iptables", "dnsmasq", "curl"],
+      "arch": ["iproute2", "iptables", "dnsmasq", "curl"]
+    },
+    "complexity": "advanced",
+    "tags": ["vpn", "split-tunnel", "routing", "policy-routing", "iptables", "advanced-networking"]
+  },
+  {
+    "id": "net_013",
+    "scenario": "Troubleshoot slow network speeds on gigabit connection",
+    "problem": "Have gigabit internet and equipment but only getting 100Mbps or less",
+    "solution": "Systematically check each layer from physical to application to find bottleneck",
+    "steps": [
+      "Verify NIC supports gigabit: ethtool eth0 | grep Speed - should show 1000Mb/s",
+      "Check if NIC negotiated correct speed: ethtool eth0 | grep -E 'Speed|Duplex' - want 1000Mb/s Full duplex",
+      "Force gigabit if auto-negotiation failed: sudo ethtool -s eth0 speed 1000 duplex full autoneg on",
+      "Check cable quality: Bad or Cat5 cable limits to 100Mbps, need Cat5e or Cat6 for gigabit",
+      "Test cable: sudo ethtool --test eth0 or swap cable to known-good one",
+      "Verify no packet loss: ping -c 100 -i 0.2 192.168.1.1 - should show 0% loss",
+      "Check for interface errors: ip -s link show eth0 - look for RX/TX errors, drops, overruns",
+      "Monitor interface saturation: iftop -i eth0 - check if maxing out at 100Mbps",
+      "Test with iperf3 server: On another machine: iperf3 -s, on this machine: iperf3 -c <server-ip>",
+      "Check interrupt coalescing: ethtool -c eth0 - adjust if needed: sudo ethtool -C eth0 rx-usecs 50",
+      "Verify MTU size: ip link show eth0 | grep mtu - should be 1500 for standard Ethernet",
+      "Test jumbo frames if network supports: sudo ip link set dev eth0 mtu 9000 && test speed",
+      "Check CPU is not bottleneck: htop while transferring - look for high system/softirq usage",
+      "Disable flow control if causing issues: sudo ethtool -A eth0 rx off tx off",
+      "Check switch/router port status: Verify switch port is configured for gigabit",
+      "Test bypass router: Connect directly to modem to rule out router bottleneck",
+      "Update NIC firmware: Check manufacturer site for latest firmware/drivers"
+    ],
+    "commands": ["ethtool", "ping", "ip", "iftop", "iperf3", "htop"],
+    "packages": {
+      "debian_ubuntu": ["ethtool", "iproute2", "iftop", "iperf3", "htop"],
+      "arch": ["ethtool", "iproute2", "iftop", "iperf3", "htop"]
+    },
+    "complexity": "advanced",
+    "tags": ["performance", "gigabit", "ethernet", "speed-test", "troubleshooting", "optimization"]
+  },
+  {
+    "id": "net_014",
+    "scenario": "Set up bonded network interfaces for redundancy and increased bandwidth",
+    "problem": "Need high-availability network connection with automatic failover and aggregated bandwidth",
+    "solution": "Configure network bonding (also called teaming) to combine multiple interfaces",
+    "steps": [
+      "Load bonding kernel module: sudo modprobe bonding",
+      "Make permanent: echo 'bonding' | sudo tee -a /etc/modules",
+      "Install bonding tools: sudo apt install ifenslave (Ubuntu) or included in iproute2 (Arch)",
+      "Create bond interface: sudo ip link add bond0 type bond mode 802.3ad (for LACP) or mode active-backup (for failover)",
+      "For active-backup (failover): sudo ip link add bond0 type bond mode active-backup miimon 100",
+      "For 802.3ad (link aggregation): sudo ip link add bond0 type bond mode 802.3ad lacp_rate fast",
+      "Add slave interfaces: sudo ip link set eth0 master bond0 && sudo ip link set eth1 master bond0",
+      "Configure bond IP: sudo ip addr add 192.168.1.100/24 dev bond0",
+      "Bring up interfaces: sudo ip link set eth0 up && sudo ip link set eth1 up && sudo ip link set bond0 up",
+      "Set default gateway: sudo ip route add default via 192.168.1.1 dev bond0",
+      "For Ubuntu persistent config, edit /etc/netplan/01-netcfg.yaml with bond configuration",
+      "For Arch, create /etc/systemd/network/10-bond0.netdev and 20-bond0.network files",
+      "Verify bonding status: cat /proc/net/bonding/bond0",
+      "Test failover: Unplug one cable, verify connection stays up and bond status changes",
+      "For 802.3ad, must configure switch for LACP/port channel",
+      "Monitor bond: watch -n 1 'cat /proc/net/bonding/bond0 | grep -E \"MII Status|Slave Interface\"'"
+    ],
+    "commands": ["modprobe", "ip", "cat"],
+    "packages": {
+      "debian_ubuntu": ["ifenslave", "iproute2"],
+      "arch": ["iproute2"]
+    },
+    "complexity": "advanced",
+    "tags": ["bonding", "redundancy", "high-availability", "link-aggregation", "lacp", "failover"]
+  },
+  {
+    "id": "net_015",
+    "scenario": "Fix IPv6 not working while IPv4 works fine",
+    "problem": "IPv4 connectivity is perfect but IPv6 sites are unreachable or very slow",
+    "solution": "Diagnose and fix IPv6 configuration, addressing, and routing issues",
+    "steps": [
+      "Check if IPv6 is enabled: cat /proc/sys/net/ipv6/conf/all/disable_ipv6 - should be 0",
+      "Enable IPv6 if disabled: sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0",
+      "Check IPv6 addresses: ip -6 addr show - should have link-local (fe80::) and global address",
+      "Test IPv6 connectivity: ping6 google.com or ping6 2001:4860:4860::8888",
+      "Check IPv6 routing: ip -6 route show - should have default route",
+      "Test router advertisement: sudo rdisc6 eth0 - should receive RA from router",
+      "Enable IPv6 forwarding if needed: sudo sysctl -w net.ipv6.conf.all.forwarding=1",
+      "Check DHCPv6 if using stateful configuration: sudo dhclient -6 eth0",
+      "Verify IPv6 DNS servers: resolvectl status - should list IPv6 name servers",
+      "Add IPv6 DNS if missing: nmcli con mod <connection> ipv6.dns '2001:4860:4860::8888 2001:4860:4860::8844'",
+      "Check firewall blocking IPv6: sudo ip6tables -L -v -n",
+      "Allow ICMPv6 (critical for IPv6): sudo ip6tables -A INPUT -p icmpv6 -j ACCEPT && sudo ip6tables -A OUTPUT -p icmpv6 -j ACCEPT",
+      "Test IPv6 connectivity to specific service: curl -6 http://ipv6.google.com",
+      "Check if ISP provides IPv6: Visit test-ipv6.com from browser",
+      "If no native IPv6, set up tunnel: Register at tunnelbroker.net and configure 6in4 tunnel",
+      "For tunnel, create interface: sudo ip tunnel add he-ipv6 mode sit remote <tunnel-server> local <your-ipv4> ttl 255",
+      "Configure tunnel addresses and routes according to tunnelbroker.net assignment"
+    ],
+    "commands": ["sysctl", "ip", "ping6", "rdisc6", "dhclient", "resolvectl", "nmcli", "ip6tables", "curl"],
+    "packages": {
+      "debian_ubuntu": ["iproute2", "ndisc6", "isc-dhcp-client", "curl"],
+      "arch": ["iproute2", "ndisc6", "dhcpcd", "curl"]
+    },
+    "complexity": "intermediate",
+    "tags": ["ipv6", "networking", "connectivity", "dns", "firewall", "troubleshooting"]
+  }
+]

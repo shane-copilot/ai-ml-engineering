@@ -1,0 +1,171 @@
+[
+  {
+    "id": "perf_001",
+    "scenario": "System running extremely slow with high load average but CPU shows mostly idle",
+    "problem": "Load average is 15+ but CPU usage is only 20%, system feels sluggish",
+    "solution": "High load with low CPU usually indicates I/O wait - disk or network bottleneck",
+    "steps": [
+      "Check load average and breakdown: uptime && cat /proc/loadavg",
+      "Identify if I/O bound: top then press '1' to see per-CPU, look for high 'wa' (I/O wait) percentage",
+      "Better I/O monitoring: iostat -x 2 10 - watch %util column, >80% indicates saturated disk",
+      "Find processes causing I/O: iotop -o (shows only active I/O processes)",
+      "Check for uninterruptible sleep (D state): ps aux | awk '$8 ~ /D/ { print }' - these cause load",
+      "Identify slow/failing disk: dmesg | grep -i 'error\\|fail' && smartctl -a /dev/sda | grep -i 'error\\|fail'",
+      "Check filesystem for issues: sudo df -h (check for 100% full) && sudo du -sh /* | sort -h (find space hogs)",
+      "Look for excessive swapping: vmstat 2 10 - si/so columns show swap in/out",
+      "Check if swap is thrashing: free -h && swapon --show",
+      "Find memory hogs: ps aux --sort=-%mem | head -20",
+      "Check for hung NFS mounts: df -h (NFS mounts will hang) && mount | grep nfs",
+      "Monitor specific disk: iotop -P -d 2 | grep sd",
+      "Check RAID status if applicable: cat /proc/mdstat or sudo megacli -LDInfo -Lall -aAll",
+      "Test disk speed: sudo hdparm -tT /dev/sda (sequential) && fio --name=random-read --ioengine=libaio --rw=randread --bs=4k --size=1G --direct=1",
+      "Check for zombie processes contributing to load: ps aux | grep defunct",
+      "If network I/O issue: netstat -s | grep -i 'error\\|drop\\|fail'"
+    ],
+    "commands": ["uptime", "top", "iostat", "iotop", "ps", "dmesg", "smartctl", "df", "du", "vmstat", "free", "swapon", "mount", "hdparm", "fio", "netstat"],
+    "packages": {
+      "debian_ubuntu": ["sysstat", "iotop", "smartmontools", "hdparm", "fio"],
+      "arch": ["sysstat", "iotop", "smartmontools", "hdparm", "fio"]
+    },
+    "complexity": "advanced",
+    "tags": ["performance", "load-average", "io-wait", "disk-performance", "troubleshooting", "system-monitoring"]
+  },
+  {
+    "id": "perf_002",
+    "scenario": "Identify and kill process eating all CPU",
+    "problem": "Single process consuming 100% CPU making system unresponsive",
+    "solution": "Identify the culprit process and determine if it should be killed or fixed",
+    "steps": [
+      "Quick view of top CPU consumers: top (press 'P' to sort by CPU) or htop (F6 to sort)",
+      "One-liner to find top process: ps aux --sort=-%cpu | head -10",
+      "Check if it's a runaway script: ps aux | grep -E 'sh|bash|python|perl' | grep -v grep",
+      "See full command line: ps -p <PID> -o pid,cmd,etime,%cpu,%mem",
+      "Check process tree: pstree -p <PID> or ps --forest -p <PID>",
+      "See what files process is accessing: sudo lsof -p <PID>",
+      "Monitor specific process: top -p <PID> or watch -n 1 'ps -p <PID> -o %cpu,%mem,etime,cmd'",
+      "Check system calls: sudo strace -p <PID> -c (count calls) or sudo strace -p <PID> -T (with timing)",
+      "Profile what it's doing: sudo perf record -p <PID> && sudo perf report",
+      "Try nice kill first: kill <PID> (sends SIGTERM, allows cleanup)",
+      "If doesn't respond: kill -9 <PID> (SIGKILL, forceful)",
+      "Kill entire process group: kill -TERM -$(ps -o pgid= <PID>)",
+      "If keeps respawning, find parent: ps -o ppid= -p <PID> && ps -p <PPID>",
+      "Check if systemd service: systemctl status <PID> && sudo systemctl stop <service>",
+      "Prevent restart: sudo systemctl disable <service> or remove from cron: crontab -l",
+      "Check for malware if suspicious: sudo rkhunter --check && sudo chkrootkit",
+      "Limit future CPU usage: cpulimit -p <PID> -l 50 (limit to 50%) or use systemd CPUQuota",
+      "Set CPU affinity to less cores: taskset -p 0x1 <PID> (limit to first core)"
+    ],
+    "commands": ["top", "htop", "ps", "pstree", "lsof", "strace", "perf", "kill", "systemctl", "crontab", "rkhunter", "chkrootkit", "cpulimit", "taskset"],
+    "packages": {
+      "debian_ubuntu": ["procps", "htop", "lsof", "strace", "linux-tools-generic", "rkhunter", "chkrootkit", "cpulimit"],
+      "arch": ["procps-ng", "htop", "lsof", "strace", "perf", "rkhunter", "chkrootkit", "cpulimit"]
+    },
+    "complexity": "intermediate",
+    "tags": ["performance", "cpu-usage", "process-management", "troubleshooting", "kill-process"]
+  },
+  {
+    "id": "perf_003",
+    "scenario": "Memory leak causing system to run out of RAM and swap heavily",
+    "problem": "System gets slower over time, memory usage keeps climbing until OOM killer starts killing processes",
+    "solution": "Identify leaking process, analyze memory usage patterns, and fix or mitigate",
+    "steps": [
+      "Check overall memory: free -h && vmstat 2 5 - watch for declining free memory and increasing swap",
+      "Find memory hogs: ps aux --sort=-%mem | head -20 or top (press 'M' to sort by memory)",
+      "Monitor memory growth: watch -n 5 'ps -p <PID> -o pid,rss,vsz,cmd' (RSS is actual RAM used)",
+      "Check for OOM killer victims: dmesg | grep -i 'killed process' or journalctl -k | grep -i oom",
+      "Detailed memory breakdown: cat /proc/meminfo | grep -E 'MemTotal|MemFree|MemAvailable|Cached|SwapTotal|SwapFree'",
+      "Process memory maps: sudo pmap -x <PID> | tail or cat /proc/<PID>/smaps",
+      "Track memory over time: sar -r 5 100 (5 sec intervals, 100 times)",
+      "Use valgrind for leak detection: valgrind --leak-check=full --log-file=valgrind.log <command>",
+      "For long-running services: sudo gcore <PID> (dump core) then analyze with gdb",
+      "Check slab memory (kernel): sudo slabtop -o (press 'C' to sort by cache size)",
+      "Look for memory-mapped files: sudo lsof | grep mem | wc -l (high count may indicate issue)",
+      "Profile memory allocation: env LD_PRELOAD=/usr/lib/libmemusage.so <command>",
+      "Check if caused by cache: sync && echo 3 | sudo tee /proc/sys/vm/drop_caches (temporarily frees caches)",
+      "Adjust OOM killer priority: echo -1000 | sudo tee /proc/<PID>/oom_score_adj (protect process from OOM)",
+      "Increase swap as temporary fix: sudo fallocate -l 4G /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile",
+      "Monitor swap usage: sudo watch -n 2 'swapon --show && free -h'",
+      "Reduce swappiness: sudo sysctl vm.swappiness=10 (makes kernel prefer RAM over swap)",
+      "For Java apps, add heap dump on OOM: -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp",
+      "Restart service if leak confirmed: sudo systemctl restart <service>",
+      "Long-term: Schedule periodic restarts via cron/systemd timer or fix the leak in code"
+    ],
+    "commands": ["free", "vmstat", "ps", "top", "dmesg", "journalctl", "pmap", "sar", "valgrind", "gcore", "gdb", "slabtop", "lsof", "sync", "sysctl", "fallocate", "mkswap", "swapon", "systemctl"],
+    "packages": {
+      "debian_ubuntu": ["procps", "sysstat", "valgrind", "gdb", "lsof"],
+      "arch": ["procps-ng", "sysstat", "valgrind", "gdb", "lsof"]
+    },
+    "complexity": "advanced",
+    "tags": ["memory-leak", "oom", "performance", "troubleshooting", "memory-management", "swap"]
+  },
+  {
+    "id": "perf_004",
+    "scenario": "Disk is 100% utilized but can't find what's using it",
+    "problem": "iostat shows disk at 100% utilization but regular monitoring doesn't reveal the cause",
+    "solution": "Use advanced I/O monitoring tools to track down the elusive disk activity",
+    "steps": [
+      "Confirm disk saturation: iostat -x 2 5 - %util column at or near 100%",
+      "Find I/O intensive processes: iotop -oP -d 2 (only show active, accumulated per process)",
+      "Sort by total I/O: iotop -oP -a (accumulated I/O since iotop started)",
+      "Check for deleted files still open: lsof +L1 /dev/sda1 or lsof | grep deleted",
+      "Monitor at block layer: sudo blktrace /dev/sda & then sudo blkparse -i sda",
+      "Use fatrace to see all file accesses: sudo fatrace -c (show current operations)",
+      "Trace system calls doing I/O: sudo strace -e trace=open,close,read,write,fsync -p <PID>",
+      "Check for excessive metadata operations: watch -n 1 'iostat -x | grep -E \"Device|sda\"'",
+      "Look for frequent file access: sudo auditctl -w /path/to/dir -p rwa && ausearch -f /path/to/dir",
+      "Check for background services: systemctl list-units --type=service --state=running | grep -E 'backup|index|scan|update'",
+      "Monitor with bcc tools if available: sudo biolatency or sudo biotop",
+      "Check SMART health: sudo smartctl -a /dev/sda | grep -E 'SMART overall|Raw_Read_Error_Rate|Reallocated_Sector'",
+      "Look for filesystem issues: sudo dmesg | grep -i 'error\\|ext4\\|xfs'",
+      "Check mount options: mount | grep sda - look for noatime (should be there), relatime (ok), or atime (causes extra writes)",
+      "Remount with noatime: sudo mount -o remount,noatime /",
+      "Check for excessive journaling: tune2fs -l /dev/sda1 | grep -i journal or xfs_info /dev/sda1",
+      "Monitor specific directory: sudo inotifywatch -r -t 60 /var/log (watch for 60 sec)",
+      "Check if swap on same disk: swapon --show - consider moving swap to different disk",
+      "Look for write amplification on SSD: sudo iostat -x 2 10 | grep -E \"Device|sda\" - w/s much higher than expected",
+      "Test raw disk performance: sudo fio --name=random-rw --ioengine=libaio --rw=randrw --bs=4k --numjobs=4 --size=1G --runtime=60 --direct=1 --filename=/dev/sda"
+    ],
+    "commands": ["iostat", "iotop", "lsof", "blktrace", "blkparse", "fatrace", "strace", "auditctl", "ausearch", "systemctl", "biolatency", "biotop", "smartctl", "dmesg", "mount", "tune2fs", "xfs_info", "inotifywatch", "swapon", "fio"],
+    "packages": {
+      "debian_ubuntu": ["sysstat", "iotop", "lsof", "blktrace", "fatrace", "auditd", "bpfcc-tools", "smartmontools", "e2fsprogs", "xfsprogs", "inotify-tools", "fio"],
+      "arch": ["sysstat", "iotop", "lsof", "blktrace", "fatrace", "audit", "bcc-tools", "smartmontools", "e2fsprogs", "xfsprogs", "inotify-tools", "fio"]
+    },
+    "complexity": "advanced",
+    "tags": ["disk-io", "performance", "troubleshooting", "iostat", "monitoring", "system-analysis"]
+  },
+  {
+    "id": "perf_005",
+    "scenario": "Find what's writing massive amounts to syslog and filling up disk",
+    "problem": "/var/log filling up rapidly, syslog growing by gigabytes per day",
+    "solution": "Identify the source of excessive logging and either fix or rate-limit it",
+    "steps": [
+      "Check log sizes: sudo du -sh /var/log/* | sort -h | tail -10",
+      "Watch logs in real-time: sudo tail -f /var/log/syslog (Ubuntu) or sudo journalctl -f (systemd)",
+      "Count messages by facility: sudo grep -oP '\\w+\\[\\d+\\]:' /var/log/syslog | sort | uniq -c | sort -n",
+      "Find top log producers: sudo journalctl --since today | awk '{print $5}' | sort | uniq -c | sort -rn | head -20",
+      "Check specific service logs: sudo journalctl -u <service-name> --since '1 hour ago' | wc -l",
+      "Watch log growth rate: watch -n 1 'ls -lh /var/log/syslog'",
+      "Find apps logging errors repeatedly: sudo grep -i error /var/log/syslog | awk '{print $5}' | sort | uniq -c | sort -rn",
+      "Check for log loops (app reading own logs): sudo lsof | grep -E '/var/log/syslog|/var/log/messages'",
+      "Temporarily stop rsyslog/syslog: sudo systemctl stop rsyslog (Ubuntu) or sudo systemctl stop syslog-ng (some distros)",
+      "Configure log rotation immediately: sudo nano /etc/logrotate.d/rsyslog - add compress, size 100M, rotate 3",
+      "Force log rotation: sudo logrotate -f /etc/logrotate.conf",
+      "Rate limit specific service: sudo systemctl edit <service> then add [Service] LogRateLimitIntervalSec=30s, LogRateLimitBurst=100",
+      "For systemd, check journal size: sudo journalctl --disk-usage",
+      "Limit journal size: sudo nano /etc/systemd/journald.conf - set SystemMaxUse=500M",
+      "Vacuum old journal entries: sudo journalctl --vacuum-size=500M or --vacuum-time=1week",
+      "Check for kernel messages: dmesg | tail -100 - driver/hardware errors can spam logs",
+      "Filter out noisy messages: Add to /etc/rsyslog.d/99-filter.conf: :msg, contains, \"<noisy text>\" stop",
+      "Restart logging after changes: sudo systemctl restart rsyslog && sudo systemctl restart systemd-journald",
+      "Monitor impact: watch -n 5 'df -h /var/log && du -sh /var/log/syslog'",
+      "Long-term: Fix the underlying issue causing excessive logging"
+    ],
+    "commands": ["du", "tail", "journalctl", "grep", "awk", "lsof", "systemctl", "logrotate", "dmesg", "df"],
+    "packages": {
+      "debian_ubuntu": ["rsyslog", "logrotate", "systemd"],
+      "arch": ["rsyslog", "logrotate", "systemd"]
+    },
+    "complexity": "intermediate",
+    "tags": ["logging", "syslog", "disk-space", "troubleshooting", "log-management", "performance"]
+  }
+]

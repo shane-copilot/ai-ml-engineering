@@ -1,0 +1,126 @@
+[
+  {
+    "id": "net_006",
+    "scenario": "Fix 'Network is unreachable' error after system update",
+    "problem": "After system update, network interface won't come up and shows 'Network is unreachable'",
+    "solution": "Diagnose interface state, check network service status, and reconfigure network settings",
+    "steps": [
+      "Check interface status: ip addr show or ifconfig -a",
+      "Bring interface up manually: sudo ip link set eth0 up",
+      "Check if NetworkManager is running: systemctl status NetworkManager",
+      "Restart networking service: sudo systemctl restart NetworkManager (most distros) or sudo systemctl restart networking (Debian)",
+      "Check for DHCP: sudo dhclient eth0 or sudo dhcpcd eth0",
+      "Verify routing table: ip route show",
+      "Add default route if missing: sudo ip route add default via 192.168.1.1 dev eth0",
+      "Check for driver issues: dmesg | grep eth0 or dmesg | grep -i network",
+      "Reinstall network tools if corrupted: sudo apt reinstall network-manager (Ubuntu) or sudo pacman -S networkmanager --overwrite '*' (Arch)",
+      "Check /etc/network/interfaces (Debian/Ubuntu) or /etc/netctl/* (Arch) for misconfigurations"
+    ],
+    "commands": ["ip", "ifconfig", "systemctl", "dhclient", "dhcpcd", "dmesg"],
+    "packages": {
+      "debian_ubuntu": ["network-manager", "iproute2", "isc-dhcp-client"],
+      "arch": ["networkmanager", "iproute2", "dhcpcd"]
+    },
+    "complexity": "intermediate",
+    "tags": ["network-down", "troubleshooting", "dhcp", "interface", "routing"]
+  },
+  {
+    "id": "net_007",
+    "scenario": "Configure static IP on server without NetworkManager",
+    "problem": "Need to set static IP on headless server where NetworkManager isn't installed",
+    "solution": "Use systemd-networkd or traditional networking configuration files",
+    "steps": [
+      "Ubuntu/Debian using netplan: Edit /etc/netplan/01-netcfg.yaml",
+      "Add config: network:\\n  version: 2\\n  renderer: networkd\\n  ethernets:\\n    eth0:\\n      addresses: [192.168.1.100/24]\\n      gateway4: 192.168.1.1\\n      nameservers:\\n        addresses: [8.8.8.8, 8.8.4.4]",
+      "Apply changes: sudo netplan apply",
+      "Arch using systemd-networkd: Create /etc/systemd/network/20-wired.network",
+      "Add config: [Match]\\nName=eth0\\n[Network]\\nAddress=192.168.1.100/24\\nGateway=192.168.1.1\\nDNS=8.8.8.8\\nDNS=8.8.4.4",
+      "Enable and start: sudo systemctl enable --now systemd-networkd",
+      "Enable resolved for DNS: sudo systemctl enable --now systemd-resolved",
+      "Verify: ip addr show eth0 && ip route show",
+      "Test connectivity: ping -c 3 8.8.8.8"
+    ],
+    "commands": ["netplan", "systemctl", "ip", "ping"],
+    "packages": {
+      "debian_ubuntu": ["netplan.io", "systemd"],
+      "arch": ["systemd"]
+    },
+    "complexity": "intermediate",
+    "tags": ["static-ip", "systemd-networkd", "netplan", "server-configuration"]
+  },
+  {
+    "id": "net_008",
+    "scenario": "Set up port forwarding to access home server from internet",
+    "problem": "Need to access internal server from outside network but router doesn't have port forwarding GUI",
+    "solution": "Use UPnP or manually configure iptables for port forwarding on gateway machine",
+    "steps": [
+      "On gateway/router machine, enable IP forwarding: sudo sysctl -w net.ipv4.ip_forward=1",
+      "Make permanent: echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.conf",
+      "Forward external port to internal server: sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 8080 -j DNAT --to-destination 192.168.1.100:80",
+      "Allow forwarded traffic: sudo iptables -A FORWARD -p tcp -d 192.168.1.100 --dport 80 -j ACCEPT",
+      "Enable masquerading for return traffic: sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+      "Save rules: sudo iptables-save | sudo tee /etc/iptables/rules.v4 (Ubuntu) or sudo iptables-save > /etc/iptables/iptables.rules (Arch)",
+      "For automatic loading on boot: sudo systemctl enable iptables (Arch) or install iptables-persistent (Ubuntu)",
+      "Test from external network: curl http://your-public-ip:8080",
+      "For dynamic IP, set up Dynamic DNS (DDNS) service"
+    ],
+    "commands": ["sysctl", "iptables", "systemctl", "curl"],
+    "packages": {
+      "debian_ubuntu": ["iptables", "iptables-persistent"],
+      "arch": ["iptables", "iptables-nft"]
+    },
+    "complexity": "advanced",
+    "tags": ["port-forwarding", "nat", "iptables", "remote-access", "firewall"]
+  },
+  {
+    "id": "net_009",
+    "scenario": "Fix WiFi that keeps disconnecting randomly",
+    "problem": "WiFi connection drops every few minutes and requires manual reconnection",
+    "solution": "Diagnose and fix power management, driver issues, or interference problems",
+    "steps": [
+      "Check WiFi interface and driver: lspci -k | grep -A 3 -i network or lsusb (for USB adapters)",
+      "Disable WiFi power management: sudo iw dev wlan0 set power_save off",
+      "Make permanent in NetworkManager: nmcli connection modify <connection-name> 802-11-wireless.powersave 2",
+      "Or edit /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf: [connection]\\nwifi.powersave = 2",
+      "Check for driver issues: dmesg | grep -i wlan0 or journalctl -u NetworkManager | grep wlan0",
+      "Update/reinstall WiFi drivers: sudo apt install --reinstall linux-firmware (Ubuntu) or sudo pacman -S linux-firmware (Arch)",
+      "Disable IPv6 if causing issues: sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1",
+      "Change WiFi channel on router to avoid interference (use WiFi analyzer app)",
+      "Test stability: ping -i 0.2 -c 1000 192.168.1.1 (should show minimal packet loss)",
+      "Check signal strength: watch -n 1 'iwconfig wlan0 | grep -i quality'"
+    ],
+    "commands": ["lspci", "lsusb", "iw", "nmcli", "dmesg", "journalctl", "sysctl", "ping", "iwconfig"],
+    "packages": {
+      "debian_ubuntu": ["wireless-tools", "iw", "network-manager"],
+      "arch": ["wireless_tools", "iw", "networkmanager"]
+    },
+    "complexity": "intermediate",
+    "tags": ["wifi", "disconnection", "power-management", "driver-issues", "troubleshooting"]
+  },
+  {
+    "id": "net_010",
+    "scenario": "Create isolated guest network using VLAN",
+    "problem": "Need to provide WiFi to guests without giving access to main network",
+    "solution": "Configure VLAN tagging to segregate guest traffic from main network",
+    "steps": [
+      "Load 8021q kernel module: sudo modprobe 8021q",
+      "Make permanent: echo '8021q' | sudo tee -a /etc/modules",
+      "Create VLAN interface: sudo ip link add link eth0 name eth0.10 type vlan id 10",
+      "Configure VLAN IP: sudo ip addr add 192.168.10.1/24 dev eth0.10",
+      "Bring up VLAN interface: sudo ip link set dev eth0.10 up",
+      "Install dnsmasq for DHCP: sudo apt install dnsmasq (Ubuntu) or sudo pacman -S dnsmasq (Arch)",
+      "Configure dnsmasq for VLAN: Edit /etc/dnsmasq.conf, add interface=eth0.10, dhcp-range=192.168.10.50,192.168.10.150,12h",
+      "Enable IP forwarding for VLAN: sudo iptables -A FORWARD -i eth0.10 -o eth0 -j ACCEPT",
+      "Block VLAN access to main network: sudo iptables -A FORWARD -i eth0.10 -d 192.168.1.0/24 -j DROP",
+      "Enable NAT for internet access: sudo iptables -t nat -A POSTROUTING -s 192.168.10.0/24 -o eth0 -j MASQUERADE",
+      "Configure WiFi AP to tag VLAN 10 for guest SSID"
+    ],
+    "commands": ["modprobe", "ip", "iptables", "dnsmasq"],
+    "packages": {
+      "debian_ubuntu": ["vlan", "dnsmasq", "iptables"],
+      "arch": ["iproute2", "dnsmasq", "iptables"]
+    },
+    "complexity": "advanced",
+    "tags": ["vlan", "guest-network", "network-isolation", "security", "firewall"]
+  }
+]

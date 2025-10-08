@@ -1,0 +1,17 @@
+{
+  "id": "ericgross1/gpu-compatibility-test-qwen3-lora",
+  "title": "GPU Compatibility Test - Qwen3 LoRA",
+  "code_file": "tpu_compatibility_test.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_data_sources": [
+    "ericgross1/qwen3-08b-coder-reasoning",
+    "sahil2801/CodeAlpaca-20k"
+  ],
+  "kernel_data_sources": [],
+  "model_data_sources": []
+}

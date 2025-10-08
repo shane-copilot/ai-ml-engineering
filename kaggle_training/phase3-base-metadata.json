@@ -1,0 +1,12 @@
+{
+  "id": "ericgross1/qwen3-phase3-python-base-training",
+  "title": "Phase 3: Qwen3 Python Automation (Base Model)",
+  "code_file": "phase3_base_training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["ericgross1/qwen3-08b-coder-reasoning"],
+  "kernel_sources": []
+}

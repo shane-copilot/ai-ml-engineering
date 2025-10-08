@@ -1,0 +1,10 @@
+{
+  "title": "Qwen3 Phase2 Linux LoRA Adapter (1-epoch)",
+  "id": "ericgross1/qwen3-phase2-linux-lora-adapter",
+  "licenses": [
+    {
+      "name": "CC0-1.0"
+    }
+  ],
+  "description": "Phase 2 LoRA adapter for Qwen2.5-0.5B trained on Linux commands (1 epoch, 20.2% loss improvement). Use with Phase 1 adapter for sequential training."
+}

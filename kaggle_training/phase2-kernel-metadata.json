@@ -1,0 +1,19 @@
+{
+  "id": "ericgross1/qwen3-phase2-linux-training-v2",
+  "title": "Qwen3 Phase2 Linux Training v2",
+  "code_file": "phase2_training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "ericgross1/qwen3-08b-coder-reasoning",
+    "ericgross1/qwen3-phase1-lora-adapter",
+    "kushagragoyal060705/complex-linux-commands-from-natual-language",
+    "cyberprince/linux-terminal-commands-dataset"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

@@ -1,0 +1,10 @@
+{
+  "id": "ericgross1/test-qwen3-setup",
+  "title": "test-qwen3-setup",
+  "code_file": "test_notebook.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": true,
+  "enable_internet": true
+}

@@ -1,0 +1,12 @@
+{
+  "id": "ericgross1/qwen3-phase2-linux-base-training",
+  "title": "Phase 2: Qwen3 Linux Commands (Base Model)",
+  "code_file": "phase2_base_training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["ericgross1/qwen3-08b-coder-reasoning"],
+  "kernel_sources": []
+}

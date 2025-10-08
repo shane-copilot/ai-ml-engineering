@@ -1,0 +1,127 @@
+[
+  {
+    "id": "net_001",
+    "scenario": "Share mobile phone internet via Bluetooth to computer, then share to WiFi network",
+    "problem": "User needs to share phone's mobile data with multiple devices but WiFi is already in use for another connection",
+    "solution": "Set up Bluetooth PAN (Personal Area Network) tethering from phone to computer, then configure the computer to share that connection via WiFi hotspot to other devices",
+    "steps": [
+      "Enable Bluetooth tethering on phone (Settings → Connections → Mobile Hotspot and Tethering → Bluetooth tethering)",
+      "On computer, pair with phone: bluetoothctl → scan on → pair <phone_MAC> → trust <phone_MAC> → connect <phone_MAC>",
+      "Create PAN connection: bt-pan client <phone_MAC>",
+      "Configure network interface (bnep0) with DHCP: sudo dhclient bnep0",
+      "Enable IP forwarding: sudo sysctl -w net.ipv4.ip_forward=1",
+      "Set up WiFi hotspot using NetworkManager: nmcli device wifi hotspot ssid MyHotspot password mypassword",
+      "Configure NAT/masquerading: sudo iptables -t nat -A POSTROUTING -o bnep0 -j MASQUERADE",
+      "Add forwarding rules: sudo iptables -A FORWARD -i wlan0 -o bnep0 -j ACCEPT && sudo iptables -A FORWARD -i bnep0 -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT"
+    ],
+    "commands": ["bluetoothctl", "bt-pan", "dhclient", "sysctl", "nmcli", "iptables"],
+    "packages": {
+      "debian_ubuntu": ["bluez", "bluez-tools", "network-manager"],
+      "arch": ["bluez", "bluez-utils", "networkmanager"]
+    },
+    "complexity": "advanced",
+    "tags": ["bluetooth", "tethering", "network-sharing", "wifi-hotspot", "nat", "iptables"]
+  },
+  {
+    "id": "net_002",
+    "scenario": "Track down hidden bandwidth usage on network",
+    "problem": "Network shows high bandwidth usage but normal monitoring tools don't reveal the source",
+    "solution": "Use multiple layers of network monitoring to identify hidden or suspicious bandwidth consumption",
+    "steps": [
+      "Check overall network usage: iftop -i eth0 (requires root)",
+      "Monitor per-process network activity: nethogs eth0",
+      "Check for hidden processes: ps aux | grep -v '\\[' | sort -k 4 -r | head -20",
+      "Inspect active connections: ss -tunap or netstat -tunap",
+      "Look for suspicious listening ports: ss -tlnp",
+      "Check firewall logs: sudo journalctl -u iptables -f (systemd) or sudo tail -f /var/log/syslog | grep UFW (Ubuntu)",
+      "Use tcpdump for deep packet inspection: sudo tcpdump -i eth0 -nn -vv 'dst net 0.0.0.0/0'",
+      "Monitor DNS queries: sudo tcpdump -i eth0 -nn port 53",
+      "Check for kernel-level traffic: sudo iptables -L -v -n | grep -v '0     0'",
+      "Inspect cron jobs and systemd timers: crontab -l && systemctl list-timers"
+    ],
+    "commands": ["iftop", "nethogs", "ss", "netstat", "tcpdump", "iptables", "journalctl"],
+    "packages": {
+      "debian_ubuntu": ["iftop", "nethogs", "net-tools", "tcpdump"],
+      "arch": ["iftop", "nethogs", "net-tools", "tcpdump"]
+    },
+    "complexity": "intermediate",
+    "tags": ["bandwidth", "monitoring", "security", "network-analysis", "troubleshooting"]
+  },
+  {
+    "id": "net_003",
+    "scenario": "Fix DNS resolution when systemd-resolved is conflicting with custom DNS",
+    "problem": "Custom DNS settings in /etc/resolv.conf keep getting overwritten by systemd-resolved",
+    "solution": "Either configure systemd-resolved properly or disable it and use traditional DNS management",
+    "steps": [
+      "Check current DNS setup: resolvectl status",
+      "Option A - Configure systemd-resolved: Edit /etc/systemd/resolved.conf, set DNS=8.8.8.8 8.8.4.4, FallbackDNS=1.1.1.1",
+      "Restart systemd-resolved: sudo systemctl restart systemd-resolved",
+      "Option B - Disable systemd-resolved: sudo systemctl disable --now systemd-resolved",
+      "Remove symlink: sudo rm /etc/resolv.conf",
+      "Create static resolv.conf: echo 'nameserver 8.8.8.8\\nnameserver 8.8.4.4' | sudo tee /etc/resolv.conf",
+      "Make immutable to prevent overwrites: sudo chattr +i /etc/resolv.conf",
+      "Test DNS: dig google.com @8.8.8.8 or nslookup google.com"
+    ],
+    "commands": ["resolvectl", "systemctl", "rm", "chattr", "dig", "nslookup"],
+    "packages": {
+      "debian_ubuntu": ["systemd-resolved", "bind9-dnsutils"],
+      "arch": ["systemd-resolvconf", "bind-tools"]
+    },
+    "complexity": "intermediate",
+    "tags": ["dns", "systemd-resolved", "network-configuration", "resolv.conf"]
+  },
+  {
+    "id": "net_004",
+    "scenario": "Set up WireGuard VPN server on home machine for remote access",
+    "problem": "Need secure remote access to home network from anywhere",
+    "solution": "Configure WireGuard VPN server with proper firewall rules and port forwarding",
+    "steps": [
+      "Install WireGuard: sudo apt install wireguard (Ubuntu) or sudo pacman -S wireguard-tools (Arch)",
+      "Generate server keys: wg genkey | tee server_private.key | wg pubkey > server_public.key",
+      "Create config: sudo nano /etc/wireguard/wg0.conf",
+      "Add server config: [Interface] PrivateKey=<server_private_key> Address=10.0.0.1/24 ListenPort=51820 SaveConfig=true",
+      "Enable IP forwarding: sudo sysctl -w net.ipv4.ip_forward=1 && echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.conf",
+      "Add NAT rule: sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+      "Save iptables: sudo iptables-save | sudo tee /etc/iptables/rules.v4 (Ubuntu) or sudo iptables-save > /etc/iptables/iptables.rules (Arch)",
+      "Start WireGuard: sudo wg-quick up wg0",
+      "Enable on boot: sudo systemctl enable wg-quick@wg0",
+      "Forward port 51820 UDP on router to server IP",
+      "Generate client keys: wg genkey | tee client_private.key | wg pubkey > client_public.key",
+      "Add client peer to server: sudo wg set wg0 peer <client_public_key> allowed-ips 10.0.0.2/32",
+      "Create client config with server public key and endpoint"
+    ],
+    "commands": ["wg", "wg-quick", "sysctl", "iptables", "systemctl"],
+    "packages": {
+      "debian_ubuntu": ["wireguard", "iptables-persistent"],
+      "arch": ["wireguard-tools", "iptables"]
+    },
+    "complexity": "advanced",
+    "tags": ["vpn", "wireguard", "remote-access", "security", "networking", "nat"]
+  },
+  {
+    "id": "net_005",
+    "scenario": "Bridge two network interfaces to extend network coverage",
+    "problem": "Need to connect wired and wireless networks to act as single network segment",
+    "solution": "Create a network bridge that combines multiple interfaces",
+    "steps": [
+      "Install bridge utilities: sudo apt install bridge-utils (Ubuntu) or sudo pacman -S bridge-utils (Arch)",
+      "Stop NetworkManager temporarily: sudo systemctl stop NetworkManager",
+      "Create bridge: sudo brctl addbr br0",
+      "Add interfaces to bridge: sudo brctl addif br0 eth0 && sudo brctl addif br0 wlan0",
+      "Bring interfaces up: sudo ip link set dev eth0 up && sudo ip link set dev wlan0 up",
+      "Bring bridge up: sudo ip link set dev br0 up",
+      "Configure bridge IP: sudo ip addr add 192.168.1.100/24 dev br0",
+      "Set default gateway: sudo ip route add default via 192.168.1.1",
+      "Make permanent in /etc/network/interfaces (Debian/Ubuntu) or netctl profile (Arch)",
+      "Enable STP to prevent loops: sudo brctl stp br0 on",
+      "Verify bridge: brctl show"
+    ],
+    "commands": ["brctl", "ip", "systemctl"],
+    "packages": {
+      "debian_ubuntu": ["bridge-utils", "net-tools"],
+      "arch": ["bridge-utils", "iproute2"]
+    },
+    "complexity": "advanced",
+    "tags": ["bridge", "networking", "ethernet", "wifi", "network-extension"]
+  }
+]

@@ -1,0 +1,589 @@
+[
+  {
+    "id": "scenario_python_sqlite_061",
+    "command": "python",
+    "scenario": "A user wants to use a simple, file-based database in their Python application.",
+    "problem": "The user needs to store structured data but doesn't want the overhead of setting up a full database server like PostgreSQL or MySQL. They need a self-contained database solution that's easy to use from Python.",
+    "solution": "Introduce SQLite as the ideal solution for embedded, serverless databases. Use Python's built-in `sqlite3` module to create a script that connects to a database file (creating it if it doesn't exist), defines a schema, inserts data, and queries it back. No external libraries are needed.",
+    "steps": [
+      "USER SAYS: 'I need to store some data for my Python app, but setting up a whole PostgreSQL server seems like overkill. Is there a simpler file-based database I can use?'",
+      "AGENT: 'Absolutely! This is the perfect use case for SQLite. It's a serverless, self-contained SQL database engine that is included right in the Python standard library. Let's build a simple example.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Embedded databases in Python...'",
+      "AGENT: '[Searching] \"python simple file database\"'",
+      "AGENT: '[Found] The `sqlite3` module is built into Python, requiring no external installation (`pip install`).'",
+      "AGENT: '[Found] The workflow is very similar to other database adapters: `connect()`, `cursor()`, `execute()`, `commit()`, `close()`.'",
+      "AGENT: '[Found] The `connect()` function will automatically create the database file if it does not exist.'",
+      "AGENT: '[Found] Using `with conn:` is best practice as it handles transactions (commits/rollbacks) automatically.'",
+      "AGENT: '\u2713 Research complete! We can do everything with the standard library.'",
+      "AGENT: ''",
+      "AGENT: '## Step 1: Write the Python Script'",
+      "AGENT: 'This script will perform all the basic database operations: create a table, insert a few rows, and then select them back.'",
+      "Create tool: cat > simple_db.py << 'EOF'",
+      "#!/usr/bin/env python3\n\n\"\"\"A simple demonstration of Python's built-in sqlite3 module.\"\"\"\n\nimport sqlite3\nimport os\n\nDB_FILE = 'inventory.db'\n\ndef main():\n    # The connect function opens the file, creating it if it doesn't exist.\n    conn = sqlite3.connect(DB_FILE)\n\n    # Use a 'with' block for the connection to handle transactions automatically.\n    # If the block completes without error, the transaction is committed.\n    # If an exception occurs, it's rolled back.\n    with conn:\n        print(f\"Opened database '{DB_FILE}' successfully.\")\n        cur = conn.cursor()\n\n        # 1. Create a table (if it doesn't exist)\n        print(\"Creating 'products' table...\")\n        cur.execute(\"\"\"\n            CREATE TABLE IF NOT EXISTS products (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                quantity INTEGER\n            )\n        \"\"\")\n\n        # 2. Insert some data (using parameterized queries to prevent SQL injection)\n        print(\"Inserting data...\")\n        products_to_add = [\n            ('Laptop', 10),\n            ('Mouse', 50),\n            ('Keyboard', 25)\n        ]\n        cur.executemany(\"INSERT INTO products (name, quantity) VALUES (?, ?)\", products_to_add)\n\n    # The 'with' block has ended, so the data is committed.\n    # Now let's query the data.\n    print(\"\\n--- Querying Data ---\")\n    with conn:\n        cur = conn.cursor()\n        cur.execute(\"SELECT name, quantity FROM products ORDER BY name\")\n        \n        print(f\"{'Product':<15} | {'Quantity'}\")\n        print(\"-\"*28)\n        for row in cur.fetchall():\n            print(f\"{row[0]:<15} | {row[1]}\")\n\n    # The connection is automatically closed when the 'with' block is done,\n    # but explicit closing is also fine.\n    conn.close()\n    print(f\"\\nDatabase connection closed.\")\n\nif __name__ == '__main__':\n    # Clean up previous runs for this example\n    if os.path.exists(DB_FILE):\n        os.remove(DB_FILE)\n    main()\n\nEOF",
+      "chmod +x simple_db.py",
+      "AGENT: '\u2713 The script is ready.'",
+      "AGENT: ''",
+      "AGENT: '## Step 2: Run the Script and Verify'",
+      "Run command: ./simple_db.py",
+      "AGENT: 'Opened database 'inventory.db' successfully.\nCreating 'products' table...\nInserting data...\n\n--- Querying Data ---\nProduct         | Quantity\n----------------------------\nKeyboard        | 25\nLaptop          | 10\nMouse           | 50\n\nDatabase connection closed.'",
+      "AGENT: '\u2713 It worked perfectly! The script created the database file, added the table and data, and read it back.'",
+      "AGENT: 'Let''s check that the database file was actually created.'",
+      "Run command: ls -l inventory.db",
+      "AGENT: '-rw-r--r-- 1 user user 12288 Oct  7 20:25 inventory.db'",
+      "AGENT: 'You can even inspect this file with the `sqlite3` command-line tool.'",
+      "Run command: sqlite3 inventory.db \"SELECT * FROM products;\"",
+      "AGENT: '1|Laptop|10\n2|Mouse|50\n3|Keyboard|25'",
+      "AGENT: '\u2713 SQLite is an incredibly powerful and convenient tool for projects that need a real SQL database without the complexity of a client-server setup. Because it''s built into Python, it''s the easiest way to get started with database programming. \ud83d\uddc3\ufe0f'"
+    ],
+    "commands": [
+      "python3",
+      "ls",
+      "sqlite3"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "sqlite3"
+      ],
+      "arch": [
+        "sqlite"
+      ]
+    },
+    "related_commands": [
+      "psql",
+      "mysql"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "python",
+      "sqlite",
+      "database",
+      "sql",
+      "dev-tools",
+      "standard-library"
+    ]
+  },
+  {
+    "id": "scenario_ansible_ensure_package_062",
+    "command": "ansible-playbook",
+    "scenario": "A sysadmin wants to use Ansible to ensure a package is installed and a service is running on a remote server.",
+    "problem": "The user needs to make sure Nginx is installed and running on a web server. They want to use Ansible to declare this desired state, so they can run the same command repeatedly and Ansible will only make a change if necessary.",
+    "solution": "Explain the concept of declarative, state-based configuration management with Ansible. Write a simple Ansible playbook that uses the `apt` (or `dnf`/`pacman`) module to ensure a package is present and the `service` module to ensure the corresponding service is started and enabled.",
+    "steps": [
+      "USER SAYS: 'I want to use Ansible to manage my web server. How do I write a 'playbook' that makes sure Nginx is always installed and running?'",
+      "AGENT: 'That's a perfect first task for Ansible! The beauty of Ansible is that you declare the *state* you want, and Ansible figures out how to get there. This is called 'idempotence'. Let's write a simple playbook.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Basic Ansible playbook for package management...'",
+      "AGENT: '[Searching] \"ansible playbook install package and start service\"'",
+      "AGENT: '[Found] Ansible playbooks are written in YAML.'",
+      "AGENT: '[Found] The `hosts` key specifies which servers to run on, defined in an 'inventory' file.'",
+      "AGENT: '[Found] The `tasks` section is a list of actions to perform.'",
+      "AGENT: '[Found] Key modules: `ansible.builtin.apt` for Debian/Ubuntu, `ansible.builtin.yum` or `dnf` for RHEL/Fedora, and `ansible.builtin.service` to manage services.'",
+      "AGENT: '\u2713 Research complete! Let''s set up your first playbook.'",
+      "AGENT: ''",
+      "AGENT: '## Step 1: Set up Ansible Inventory'",
+      "AGENT: 'Ansible needs to know which servers to manage. We create an inventory file, which is usually named `hosts` or `inventory`.'",
+      "Run command: mkdir ansible && cd ansible",
+      "Run command: cat > hosts << 'EOF'",
+      "[webservers]\nweb1.example.com ansible_user=ubuntu\nEOF",
+      "AGENT: 'This defines a group called `webservers` containing one server, `web1.example.com`. We are also telling Ansible to connect as the `ubuntu` user.'",
+      "AGENT: 'You must have passwordless SSH access (using keys) from your control machine to `web1.example.com` for this to work.'",
+      "AGENT: ''",
+      "AGENT: '## Step 2: Write the Ansible Playbook'",
+      "AGENT: 'Now we create the YAML file that describes our desired state.'",
+      "Create tool: cat > nginx_playbook.yml << 'EOF'",
+      "---\n- name: Ensure Nginx is installed and running\n  hosts: webservers\n  become: yes  # This is equivalent to using sudo\n\n  tasks:\n    - name: Install Nginx package\n      ansible.builtin.apt:\n        name: nginx\n        state: present\n        update_cache: yes\n\n    - name: Ensure Nginx service is started and enabled\n      ansible.builtin.service:\n        name: nginx\n        state: started\n        enabled: yes\nEOF",
+      "AGENT: 'Let''s break this down:'",
+      "AGENT: ' - `hosts: webservers`: This playbook will run on all hosts in the `[webservers]` group from our inventory file.'",
+      "AGENT: ' - `become: yes`: The tasks need root privileges, so this tells Ansible to use `sudo`.'",
+      "AGENT: ' - `tasks:`: A list of actions.'",
+      "AGENT: ' - `ansible.builtin.apt`: This module manages packages. `state: present` means 'ensure it is installed'. If it's already there, Ansible does nothing.'",
+      "AGENT: ' - `ansible.builtin.service`: This module manages services. `state: started` and `enabled: yes` ensures the service is running now and will start on boot.'",
+      "AGENT: ''",
+      "AGENT: '## Step 3: Run the Playbook'",
+      "AGENT: 'We execute the playbook using the `ansible-playbook` command, specifying our inventory file and playbook file.'",
+      "Run command: ansible-playbook -i hosts nginx_playbook.yml",
+      "AGENT: '\nPLAY [Ensure Nginx is installed and running] **************************************\n\nTASK [Gathering Facts] **********************************************************\nok: [web1.example.com]\n\nTASK [Install Nginx package] ****************************************************\nchanged: [web1.example.com]\n\nTASK [Ensure Nginx service is started and enabled] ******************************\nchanged: [web1.example.com]\n\nPLAY RECAP **********************************************************************\nweb1.example.com           : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0'",
+      "AGENT: '\ud83d\udca1 The `changed=2` status tells us that Ansible had to perform two actions: installing the package and starting the service. Now, let''s run the *exact same command again*.'",
+      "Run command: ansible-playbook -i hosts nginx_playbook.yml",
+      "AGENT: '\nPLAY [Ensure Nginx is installed and running] **************************************\n\nTASK [Gathering Facts] **********************************************************\nok: [web1.example.com]\n\nTASK [Install Nginx package] ****************************************************\nok: [web1.example.com]\n\nTASK [Ensure Nginx service is started and enabled] ******************************\nok: [web1.example.com]\n\nPLAY RECAP **********************************************************************\nweb1.example.com           : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0'",
+      "AGENT: '\u2713 Success! The second time, the status is `changed=0`. Ansible checked the remote server, saw that Nginx was already installed and running, and correctly determined that no changes were needed. This is the core power of Ansible: you can run your playbooks over and over, and they will only make changes when the system's state has drifted from your declared configuration. \u2699\ufe0f'"
+    ],
+    "commands": [
+      "ansible-playbook",
+      "cat",
+      "mkdir"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "ansible"
+      ],
+      "arch": [
+        "ansible"
+      ]
+    },
+    "related_commands": [
+      "puppet",
+      "chef",
+      "salt",
+      "terraform"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "ansible",
+      "devops",
+      "automation",
+      "configuration-management",
+      "iac",
+      "nginx"
+    ]
+  },
+  {
+    "id": "scenario_docker_container_exits_063",
+    "command": "docker",
+    "scenario": "A user tries to start a Docker container, but it exits immediately.",
+    "problem": "When the user runs `docker run <image>`, the command finishes instantly. When they check with `docker ps -a`, they can see the container was created but has a status like 'Exited (1) 1 second ago'. They don't know why it won't stay running.",
+    "solution": "Explain that containers exit when their main process finishes. Use `docker logs` to retrieve the output from the exited container, which usually contains the error message. If logs are empty, use `docker inspect` to verify the container's `CMD` or `ENTRYPOINT` to ensure it's not misconfigured.",
+    "steps": [
+      "USER SAYS: 'I'm trying to start a Docker container, but it won't stay running! `docker ps` is empty, but `docker ps -a` shows it 'Exited' right away. How can I see the error?'",
+      "AGENT: 'That's a very common Docker puzzle! A container only runs as long as its main process is running. If that process exits (either successfully or with an error), the container stops. We need to find out what the container's logs say.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Debugging immediately exiting Docker containers...'",
+      "AGENT: '[Searching] \"docker container exits immediately\"'",
+      "AGENT: '[Found] The primary debugging tool is `docker logs <container_id_or_name>`. This command works even on stopped containers.'",
+      "AGENT: '[Found] The exit code is important. 'Exited (0)' means the main process finished successfully. 'Exited (1)' or another non-zero code means it terminated with an error.'",
+      "AGENT: '[Found] `docker inspect <container_id>` can be used to see the full configuration, including the command (`Cmd`) the container tried to run.'",
+      "AGENT: '\u2713 Research complete! Let''s debug this with a practical example.'",
+      "AGENT: ''",
+      "AGENT: '## Step 1: Create a broken Docker image and run it'",
+      "AGENT: 'Let''s create a simple Dockerfile with a Python script that has an error.'",
+      "Run command: mkdir docker_test && cd docker_test",
+      "Run command: cat > main.py << 'EOF'",
+      "import time\nprint(\"Container is starting...\")\n# This will raise a ZeroDivisionError\nresult = 1 / 0\nprint(\"This will never be printed.\")\ntime.sleep(60)\nEOF",
+      "Run command: cat > Dockerfile << 'EOF'",
+      "FROM python:3.11-slim\nWORKDIR /app\nCOPY main.py .\nCMD [\"python\", \"main.py\"]\nEOF",
+      "AGENT: 'Now, build the image.'",
+      "Run command: docker build -t broken-app .",
+      "AGENT: '\u2713 Image built. Now let''s run it and see it fail.'",
+      "Run command: docker run --name my-broken-app broken-app",
+      "AGENT: '(Command returns immediately)'",
+      "AGENT: ''",
+      "AGENT: '## Step 2: Check the Container Status'",
+      "Run command: docker ps -a",
+      "AGENT: 'CONTAINER ID   IMAGE        COMMAND               CREATED         STATUS                     PORTS     NAMES\n1a2b3c4d5e6f   broken-app   \"python main.py\"      5 seconds ago   Exited (1) 4 seconds ago           my-broken-app'",
+      "AGENT: 'This confirms our problem. The container has `Exited (1)`, which indicates an error.'",
+      "AGENT: ''",
+      "AGENT: '## Step 3: Use `docker logs` to Find the Error'",
+      "AGENT: 'This is the most important step. We ask Docker for the logs from the stopped container.'",
+      "Run command: docker logs my-broken-app",
+      "AGENT: 'Container is starting...\nTraceback (most recent call last):\n  File \"/app/main.py\", line 4, in <module>\n    result = 1 / 0\n           ~^~~\nZeroDivisionError: division by zero'",
+      "AGENT: '\u274c There it is! The container's logs show the exact Python stack trace. The application tried to divide by zero and crashed. Since this was the main process, the container exited.'",
+      "AGENT: ''",
+      "AGENT: '## Step 4: Fix and Rerun'",
+      "AGENT: 'Now that we know the problem, we can fix the script.'",
+      "Run command: cat > main.py << 'EOF'",
+      "import time\nprint(\"Container is starting...\")\nprint(\"Doing some important work...\")\n# Keep the container running\nwhile True:\n    time.sleep(10)\nEOF",
+      "AGENT: 'Rebuild the image and run it again.'",
+      "Run command: docker build -t fixed-app .",
+      "Run command: docker rm my-broken-app # Remove the old container first",
+      "Run command: docker run -d --name my-fixed-app fixed-app",
+      "AGENT: 'abcdef123456... (a long container ID is printed)'",
+      "AGENT: 'Now check the status.'",
+      "Run command: docker ps",
+      "AGENT: 'CONTAINER ID   IMAGE       COMMAND               CREATED         STATUS         PORTS     NAMES\nabcdef123456   fixed-app   \"python main.py\"      5 seconds ago   Up 4 seconds             my-fixed-app'",
+      "AGENT: '\u2713 Success! The container now has a status of 'Up' because its main process (the `while True` loop) is still running. Always remember: if a container exits unexpectedly, `docker logs` is your best friend. \ud83d\udc33'"
+    ],
+    "commands": [
+      "docker",
+      "mkdir",
+      "cat"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "docker.io"
+      ],
+      "arch": [
+        "docker"
+      ]
+    },
+    "related_commands": [
+      "docker inspect",
+      "docker events",
+      "kubectl logs"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "docker",
+      "containers",
+      "troubleshooting",
+      "debugging",
+      "devops",
+      "docker-logs"
+    ]
+  },
+  {
+    "id": "scenario_python_gitpython_064",
+    "command": "python",
+    "scenario": "A developer wants to automate simple Git operations like branching and committing using a Python script.",
+    "problem": "For an automation task, the user needs to programmatically create a new feature branch in a Git repository, create a file, stage it, commit it, and push it to the remote. Calling `git` commands via `subprocess` is an option, but a dedicated library would be cleaner.",
+    "solution": "Research Python libraries for Git. Use the `GitPython` library, a popular and powerful wrapper around the `git` command. Write a script that initializes a repository object, creates a new branch, manages files in the index, creates a commit, and pushes to a remote.",
+    "steps": [
+      "USER SAYS: 'I need to write a Python script that automates creating a new feature branch in a git repo, adding a file, and committing it. Is there a library for that?'",
+      "AGENT: 'Yes, the best library for this is `GitPython`. It gives you an object-oriented way to interact with a Git repository, which is much cleaner than calling `git` commands with `subprocess`.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Interacting with Git from Python...'",
+      "AGENT: '[Searching] \"python git library\"'",
+      "AGENT: '[Found] `GitPython` is the most widely used and mature library for this purpose.'",
+      "AGENT: '[Found] The core object is `git.Repo`, which represents a repository.'",
+      "AGENT: '[Found] Key operations: `repo.create_head()` to create a branch, `repo.index.add()` to stage files, `repo.index.commit()` to commit, and `repo.remote().push()` to push.'",
+      "AGENT: '\u2713 Research complete! Let''s build a script to automate your branching workflow.'",
+      "AGENT: ''",
+      "AGENT: '## Step 1: Install `GitPython`'",
+      "Run command: pip install GitPython",
+      "AGENT: 'Successfully installed GitPython-... gitdb-...'",
+      "AGENT: ''",
+      "AGENT: '## Step 2: Set up a Test Repository'",
+      "AGENT: 'We need a bare repository to act as our 'remote' (`origin`) and a local clone to work in.'",
+      "Run command: git init --bare my_remote_repo.git",
+      "Run command: git clone my_remote_repo.git my_local_repo",
+      "Run command: cd my_local_repo",
+      "Run command: touch README.md && git add . && git commit -m \"Initial commit\" && git push origin main",
+      "AGENT: '\u2713 Our local and remote repositories are set up and in sync.'",
+      "AGENT: ''",
+      "AGENT: '## Step 3: Write the Automation Script'",
+      "AGENT: 'This script will live outside the repo and operate on it.'",
+      "Create tool: cat > git_automator.py << 'EOF'",
+      "#!/usr/bin/env python3\n\n\"\"\"Automates a simple Git workflow using the GitPython library.\"\"\"\n\nimport git\nimport os\nfrom datetime import datetime\n\n# --- Configuration ---\nREPO_PATH = './my_local_repo'\n# ---------------------\n\ndef main():\n    try:\n        repo = git.Repo(REPO_PATH)\n    except git.InvalidGitRepositoryError:\n        print(f\"Error: Not a valid Git repository at {REPO_PATH}\")\n        return\n\n    # Ensure we are on the main branch and it's clean\n    if repo.is_dirty() or repo.active_branch.name != 'main':\n        print(\"Error: Repository is dirty or not on the main branch.\")\n        return\n\n    # Pull the latest changes from remote main\n    print(\"Pulling latest changes from origin/main...\")\n    repo.remotes.origin.pull()\n\n    # Create a new feature branch with a timestamp\n    now = datetime.now().strftime('%Y%m%d-%H%M%S')\n    new_branch_name = f'feature/new-update-{now}'\n    print(f\"Creating and checking out new branch: {new_branch_name}\")\n    new_branch = repo.create_head(new_branch_name)\n    new_branch.checkout()\n\n    # Create a new file, add it, and commit it\n    new_file_path = os.path.join(REPO_PATH, f'{new_branch_name}.txt')\n    print(f\"Creating new file: {new_file_path}\")\n    with open(new_file_path, 'w') as f:\n        f.write(f'This is an automated update from {now}.')\n\n    print(\"Staging new file...\")\n    repo.index.add([new_file_path])\n\n    commit_message = f\"feat: Add automated update for {now}\"\n    print(f\"Committing with message: '{commit_message}'\")\n    repo.index.commit(commit_message)\n\n    # Push the new branch to the remote\n    print(f\"Pushing branch '{new_branch_name}' to origin...\")\n    repo.remotes.origin.push(new_branch_name)\n\n    print(\"\\n\u2713 Workflow complete!\")\n\nif __name__ == '__main__':\n    main()\n\nEOF",
+      "chmod +x git_automator.py",
+      "AGENT: '\u2713 The automation script is ready.'",
+      "AGENT: ''",
+      "AGENT: '## Step 4: Run the Script and Verify'",
+      "Run command: ../git_automator.py # Run from outside the repo dir",
+      "AGENT: 'Pulling latest changes from origin/main...\nCreating and checking out new branch: feature/new-update-20251007-203000\nCreating new file: ./my_local_repo/feature/new-update-20251007-203000.txt\nStaging new file...\nCommitting with message: 'feat: Add automated update for 20251007-203000'\nPushing branch 'feature/new-update-20251007-203000' to origin...\n\n\u2713 Workflow complete!'",
+      "AGENT: 'Now let''s check the state of the local repository to see what the script did.'",
+      "Run command: git log -n 1 --oneline && git status",
+      "AGENT: 'a1b2c3d (HEAD -> feature/new-update-20251007-203000, origin/feature/new-update-20251007-203000) feat: Add automated update for 20251007-203000\nOn branch feature/new-update-20251007-203000\nYour branch is up to date with 'origin/feature/new-update-20251007-203000'.\n\nnothing to commit, working tree clean'",
+      "AGENT: '\u2713 It worked perfectly! The Python script successfully pulled, created a branch, added a file, committed, and pushed the new branch to the remote. This is a powerful technique for integrating Git operations into larger CI/CD or automation workflows. \ud83e\udd16'"
+    ],
+    "commands": [
+      "git",
+      "pip",
+      "python3",
+      "mkdir",
+      "touch",
+      "cat"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "git",
+        "python3-pip",
+        "python3-git"
+      ],
+      "arch": [
+        "git",
+        "python-pip",
+        "python-gitpython"
+      ]
+    },
+    "related_commands": [
+      "subprocess",
+      "pygit2"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "python",
+      "git",
+      "gitpython",
+      "automation",
+      "devops",
+      "scripting"
+    ]
+  },
+  {
+    "id": "scenario_nmap_port_scan_065",
+    "command": "nmap",
+    "scenario": "A security admin wants to perform a basic port scan on a server to discover open ports and running services.",
+    "problem": "Before hardening a new server, the admin needs a baseline of what network services are currently exposed to the network. Manually checking for every possible service is impossible; they need an automated scanning tool.",
+    "solution": "Research network scanning tools. Use `nmap` (Network Mapper), the industry-standard tool for network discovery and security auditing. Perform a simple TCP SYN scan to quickly identify open ports, and then a version detection scan to try and identify the software running on those ports.",
+    "steps": [
+      "USER SAYS: 'I've just been given a new server to manage. How can I quickly find out what ports are open and what services are running on it?'",
+      "AGENT: 'The essential tool for that job is `nmap`, the Network Mapper. It's the gold standard for network scanning and will give you a detailed picture of the server's network footprint. Let''s run a couple of basic scans.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Port scanning with nmap...'",
+      "AGENT: '[Searching] \"nmap tutorial for beginners\"'",
+      "AGENT: '[Found] `nmap` is a powerful network scanner for discovering hosts and services.'",
+      "AGENT: '[Found] The most common scan is a TCP SYN scan (`-sS`), which is fast and relatively stealthy. It's often the default scan type when run as root.'",
+      "AGENT: '[Found] A simple scan can be run with `nmap <target_ip>`.'",
+      "AGENT: '[Found] The `-sV` flag enables version detection, which tries to determine the exact software and version running on an open port.'",
+      "AGENT: '\u2713 Research complete! Let''s scan our target.'",
+      "AGENT: ''",
+      "AGENT: '## Step 1: Install `nmap`'",
+      "Run command: sudo apt update && sudo apt install nmap -y",
+      "AGENT: '\u2713 Nmap installed.'",
+      "AGENT: ''",
+      "AGENT: '## Approach 1: A Quick, Basic Scan'",
+      "AGENT: 'This scan will quickly check the 1,000 most common TCP ports. We'll run it against `localhost` (127.0.0.1) for this example.'",
+      "Run command: sudo nmap 127.0.0.1",
+      "AGENT: 'Starting Nmap 7.92 ( https://nmap.org ) at 2025-10-07 20:35 EDT\nNmap scan report for localhost (127.0.0.1)\nHost is up (0.00010s latency).\nNot shown: 997 closed tcp ports (reset)\nPORT     STATE SERVICE\n22/tcp   open  ssh\n80/tcp   open  http\n5432/tcp open  postgresql\n\nNmap done: 1 IP address (1 host up) scanned in 0.08 seconds'",
+      "AGENT: '\ud83d\udca1 This is a great start! The scan instantly tells us that three ports are open: 22 (SSH), 80 (HTTP), and 5432 (PostgreSQL). It also tells us that 997 other common ports are closed. This already gives us a good idea of the server's purpose.'",
+      "AGENT: ''",
+      "AGENT: '## Approach 2: A More Detailed Version Scan'",
+      "AGENT: 'Just knowing that port 80 is open for 'http' is good, but is it Nginx, Apache, or something else? A version scan (`-sV`) will try to figure that out.'",
+      "Run command: sudo nmap -sV 127.0.0.1",
+      "AGENT: 'Starting Nmap 7.92 ( https://nmap.org ) at 2025-10-07 20:36 EDT\nNmap scan report for localhost (127.0.0.1)\nHost is up (0.00012s latency).\nNot shown: 997 closed tcp ports (reset)\nPORT     STATE SERVICE VERSION\n22/tcp   open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.1 (Ubuntu Linux; protocol 2.0)\n80/tcp   open  http    nginx 1.18.0 (Ubuntu)\n5432/tcp open  pgsql   PostgreSQL 14.8 (Ubuntu 14.8-0ubuntu0.22.04.1)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nService detection performed. Please report any incorrect results at https://nmap.org/submit/\nNmap done: 1 IP address (1 host up) scanned in 6.45 seconds'",
+      "AGENT: '\u2713 Much more detail! Now we know the server is running:'",
+      "AGENT: ' - **OpenSSH version 8.9p1** on port 22.'",
+      "AGENT: ' - **Nginx version 1.18.0** on port 80.'",
+      "AGENT: ' - **PostgreSQL version 14.8** on port 5432.'",
+      "AGENT: 'This information is critical for security auditing. For example, you could now research if Nginx 1.18.0 has any known vulnerabilities. This is the first step in hardening a server: understanding its attack surface. `nmap` is an indispensable tool for this. \ud83d\uddfa\ufe0f'"
+    ],
+    "commands": [
+      "nmap"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "nmap"
+      ],
+      "arch": [
+        "nmap"
+      ]
+    },
+    "related_commands": [
+      "netstat",
+      "ss",
+      "lsof",
+      "masscan"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "nmap",
+      "security",
+      "networking",
+      "port-scanning",
+      "auditing",
+      "hardening"
+    ]
+  },
+  {
+    "id": "scenario_too_many_open_files_066",
+    "command": "ulimit",
+    "scenario": "A high-traffic web server or database is failing with 'Too many open files' errors.",
+    "problem": "A process fails with an error like `socket.error: [Errno 24] Too many open files`. This happens when a process tries to open more files (or network sockets, which are treated as files) than the per-process limit set by the operating system.",
+    "solution": "Explain the concept of file descriptors and resource limits (`ulimit`). Use `ulimit -n` to check the current limit. Use `lsof -p <PID>` to see exactly how many files a specific process has open. Show how to raise the limit temporarily for the current session and permanently by editing `/etc/security/limits.conf`.",
+    "steps": [
+      "USER SAYS: 'My Nginx server just crashed! The logs have this error: `[alert] 1234#1234: socket() failed (24: Too many open files)`. What does this mean?'",
+      "AGENT: 'That error is a classic sign of a system under heavy load hitting its resource limits. Every connection, log file, and temporary file a process uses counts as an 'open file' or 'file descriptor'. Your Nginx process has hit its per-process limit. Let's diagnose and raise it.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Debugging 'Too many open files'...'",
+      "AGENT: '[Searching] \"linux too many open files error 24\"'",
+      "AGENT: '[Found] This is controlled by 'ulimits' (user limits), specifically the `nofile` (number of open files) limit.'",
+      "AGENT: '[Found] `ulimit -n` shows the current 'soft' limit for the shell. `ulimit -Hn` shows the 'hard' limit.'",
+      "AGENT: '[Found] `lsof -p <PID> | wc -l` is the definitive way to count how many file descriptors a specific process is actually using.'",
+      "AGENT: '[Found] Permanent changes for services are best set in their `systemd` unit file using `LimitNOFILE=`. System-wide changes are made in `/etc/security/limits.conf`.'",
+      "AGENT: '\u2713 Research complete! Let''s investigate your limits.'",
+      "AGENT: ''",
+      "AGENT: '## Approach 1: Check the Current Limits'",
+      "AGENT: 'The limits are inherited from the parent process. Let''s check the limit for your current shell.'",
+      "Run command: ulimit -n",
+      "AGENT: '1024'",
+      "AGENT: 'This is a very common default value, and it''s quite low for a busy web server. Each client connection to Nginx uses one file descriptor, so it can be exhausted quickly.'",
+      "AGENT: 'Let''s check the actual Nginx master process. First, find its PID.'",
+      "Run command: pgrep nginx",
+      "AGENT: '1234'",
+      "AGENT: 'Now, we can check the limits for that specific running process.'",
+      "Run command: cat /proc/1234/limits | grep 'Max open files'",
+      "AGENT: 'Max open files            1024                 4096                 files'",
+      "AGENT: 'This confirms it. The soft limit is 1024 and the hard limit is 4096. Nginx has hit the soft limit.'",
+      "AGENT: ''",
+      "AGENT: '## Approach 2: Count Open Files with `lsof`'",
+      "AGENT: 'Let''s prove that the process is actually using that many files.'",
+      "Run command: sudo lsof -p 1234 | wc -l",
+      "AGENT: '1025'",
+      "AGENT: 'Exactly. The process has 1025 file descriptors open, exceeding its limit of 1024.'",
+      "AGENT: ''",
+      "AGENT: '## Approach 3: The Permanent Fix (systemd)'",
+      "AGENT: 'For a service like Nginx, the best place to set its resource limits is in its `systemd` unit file. This ensures it always starts with the correct limits and doesn't depend on system-wide defaults.'",
+      "AGENT: 'We will create an override file so our changes aren't lost during package updates.'",
+      "Run command: sudo systemctl edit nginx.service",
+      "AGENT: 'This will open an empty editor. Add the following lines:'",
+      "AGENT: '[Service]\nLimitNOFILE=65536'",
+      "AGENT: 'Save and exit the editor. This creates an override file at `/etc/systemd/system/nginx.service.d/override.conf`.'",
+      "AGENT: 'Now we need to reload the systemd daemon and restart Nginx for the new limit to apply.'",
+      "Run command: sudo systemctl daemon-reload",
+      "Run command: sudo systemctl restart nginx",
+      "AGENT: ''",
+      "AGENT: '## Step 4: Verify the New Limit'",
+      "AGENT: 'Let''s find the new Nginx PID and check its limits again.'",
+      "Run command: pgrep nginx",
+      "AGENT: '5678'",
+      "Run command: cat /proc/5678/limits | grep 'Max open files'",
+      "AGENT: 'Max open files            65536                65536                files'",
+      "AGENT: '\u2713 Success! The Nginx process now has a much higher limit of 65,536 for open files. This will prevent the 'Too many open files' error and allow your server to handle a much higher volume of traffic. \ud83d\udcc2'"
+    ],
+    "commands": [
+      "ulimit",
+      "pgrep",
+      "cat",
+      "lsof",
+      "wc",
+      "systemctl"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "procps",
+        "lsof",
+        "systemd"
+      ],
+      "arch": [
+        "procps-ng",
+        "lsof",
+        "systemd"
+      ]
+    },
+    "related_commands": [
+      "sysctl"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "ulimit",
+      "file-descriptors",
+      "performance",
+      "troubleshooting",
+      "nginx",
+      "systemd",
+      "limits"
+    ]
+  },
+  {
+    "id": "scenario_python_unittest_067",
+    "command": "python",
+    "scenario": "A developer wants to write automated tests for their Python code.",
+    "problem": "The user has written a Python function and wants to ensure it works correctly. They are testing it by running the script manually with different inputs, which is slow and not repeatable. They need to learn how to create a proper automated test suite.",
+    "solution": "Introduce the built-in `unittest` framework. Create a simple Python module with a function to be tested. Then, create a separate test file that imports the module, defines a test class inheriting from `unittest.TestCase`, and writes test methods (starting with `test_`) that use assertion methods like `assertEqual` to verify the function's behavior.",
+    "steps": [
+      "USER SAYS: 'I wrote a Python function, and I want to create some automated tests for it to make sure it doesn't break when I make changes later. What's the standard way to do this?'",
+      "AGENT: 'That's a fantastic habit to get into! Automated testing is crucial for reliable software. Python's standard library includes a powerful framework called `unittest` that's perfect for this.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Unit testing in Python...'",
+      "AGENT: '[Searching] \"python unit testing tutorial\"'",
+      "AGENT: '[Found] The `unittest` module is the built-in, xUnit-style testing framework.'",
+      "AGENT: '[Found] The convention is to put your tests in a separate file, often named `test_*.py`.'",
+      "AGENT: '[Found] Tests are organized into classes that inherit from `unittest.TestCase`.'",
+      "AGENT: '[Found] Individual tests are methods within the class whose names start with `test_`.'",
+      "AGENT: '[Found] Assertions like `self.assertEqual(a, b)`, `self.assertTrue(x)`, and `self.assertRaises(e)` are used to check for expected outcomes.'",
+      "AGENT: '\u2713 Research complete! Let''s write a function and then test it.'",
+      "AGENT: ''",
+      "AGENT: '## Step 1: Create the Code to be Tested'",
+      "AGENT: 'Let''s create a simple module with a couple of string utility functions.'",
+      "Run command: cat > string_utils.py << 'EOF'",
+      "# string_utils.py\n\ndef capitalize_text(text):\n    \"\"\"Returns the text in title case.\"\"\"\n    if not isinstance(text, str):\n        raise TypeError(\"Input must be a string\")\n    return text.title()\n\ndef is_palindrome(text):\n    \"\"\"Checks if a string is a palindrome (case-insensitive).\"\"\"\n    if not isinstance(text, str):\n        raise TypeError(\"Input must be a string\")\n    formatted = ''.join(filter(str.isalnum, text)).lower()\n    return formatted == formatted[::-1]\nEOF",
+      "AGENT: '\u2713 We have our two functions. One for capitalization and one to check for palindromes.'",
+      "AGENT: ''",
+      "AGENT: '## Step 2: Write the Test File'",
+      "AGENT: 'Now, we'll create `test_string_utils.py`. This file will import our code and contain the tests.'",
+      "Create tool: cat > test_string_utils.py << 'EOF'",
+      "# test_string_utils.py\n\nimport unittest\nfrom string_utils import capitalize_text, is_palindrome\n\nclass TestStringUtils(unittest.TestCase):\n\n    def test_capitalize_text(self):\n        \"\"\"Test the capitalize_text function.\"\"\"\n        self.assertEqual(capitalize_text('hello world'), 'Hello World')\n        self.assertEqual(capitalize_text('python testing'), 'Python Testing')\n        self.assertEqual(capitalize_text(''), '') # Test edge case: empty string\n\n    def test_is_palindrome(self):\n        \"\"\"Test the is_palindrome function.\"\"\"\n        self.assertTrue(is_palindrome('Racecar'))\n        self.assertTrue(is_palindrome('A man, a plan, a canal: Panama'))\n        self.assertFalse(is_palindrome('hello'))\n        self.assertTrue(is_palindrome('')) # Test edge case: empty string\n\n    def test_input_type_errors(self):\n        \"\"\"Test that non-string inputs raise TypeErrors.\"\"\"\n        with self.assertRaises(TypeError):\n            capitalize_text(123)\n        with self.assertRaises(TypeError):\n            is_palindrome(None)\n\n# This allows the test to be run from the command line\nif __name__ == '__main__':\n    unittest.main()\n\nEOF",
+      "AGENT: 'Notice how each `test_` method checks a specific piece of functionality, including edge cases and error conditions.'",
+      "AGENT: ''",
+      "AGENT: '## Step 3: Run the Tests'",
+      "AGENT: 'The `unittest` module includes a test discovery mechanism that can find and run your tests automatically. The `-v` flag adds verbose output.'",
+      "Run command: python -m unittest -v test_string_utils.py",
+      "AGENT: 'test_capitalize_text (test_string_utils.TestStringUtils) ... ok\ntest_input_type_errors (test_string_utils.TestStringUtils) ... ok\ntest_is_palindrome (test_string_utils.TestStringUtils) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nOK'",
+      "AGENT: '\u2713 All tests passed! Let''s intentionally break one of our functions to see what a failure looks like.'",
+      "AGENT: 'Let''s change `text.title()` to `text.upper()` in `string_utils.py`.'",
+      "Run command: sed -i \"s/text.title()/text.upper()/\" string_utils.py",
+      "AGENT: 'Now, run the tests again.'",
+      "Run command: python -m unittest -v test_string_utils.py",
+      "AGENT: 'test_capitalize_text (test_string_utils.TestStringUtils) ... FAIL\ntest_input_type_errors (test_string_utils.TestStringUtils) ... ok\ntest_is_palindrome (test_string_utils.TestStringUtils) ... ok\n\n======================================================================\nFAIL: test_capitalize_text (test_string_utils.TestStringUtils)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/user/test_string_utils.py\", line 11, in test_capitalize_text\n    self.assertEqual(capitalize_text('hello world'), 'Hello World')\nAssertionError: 'HELLO WORLD' != 'Hello World'\n- HELLO WORLD\n+ Hello World\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nFAILED (failures=1)'",
+      "AGENT: '\u2713 The test suite caught the regression! It tells us exactly which test failed (`test_capitalize_text`), on which line, and what the difference was between the expected and actual output. This is the power of automated testing. It gives you the confidence to refactor and change your code, knowing your test suite will act as a safety net. \ud83e\uddea'"
+    ],
+    "commands": [
+      "python",
+      "cat",
+      "sed"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "python3"
+      ],
+      "arch": [
+        "python"
+      ]
+    },
+    "related_commands": [
+      "pytest",
+      "nose2"
+    ],
+    "complexity": "intermediate",
+    "tags": [
+      "python",
+      "testing",
+      "unittest",
+      "tdd",
+      "dev-tools",
+      "quality-assurance"
+    ]
+  },
+  {
+    "id": "scenario_mysql_high_cpu_068",
+    "command": "mysql",
+    "scenario": "A database administrator notices that the MySQL server process is consistently using high CPU.",
+    "problem": "A web application is slow, and `top` shows the `mysqld` process is using 100% of a CPU core. The DBA needs to identify which specific queries or users are causing the high load.",
+    "solution": "Connect to the MySQL server and use the `SHOW FULL PROCESSLIST` command to get a real-time view of active queries. Then, enable the 'slow query log' in the MySQL configuration to automatically log any queries that take longer than a specified threshold to execute. Analyze the slow query log to find the inefficient queries that need optimization.",
+    "steps": [
+      "USER SAYS: 'My website is crawling and `top` shows the `mysqld` process is stuck at 100% CPU. How can I find out what query is killing my database?'",
+      "AGENT: 'High CPU on a database server almost always points to one or more inefficient queries, perhaps ones that are scanning huge tables without an index. We can investigate this directly inside MySQL.'",
+      "AGENT: '\ud83d\udd0d RESEARCH PHASE: Debugging high CPU usage in MySQL...'",
+      "AGENT: '[Searching] \"mysql high cpu find query\"'",
+      "AGENT: '[Found] `SHOW FULL PROCESSLIST;` is the primary real-time diagnostic tool. It shows all currently running threads (queries) and their status.'",
+      "AGENT: '[Found] For historical analysis, the 'slow query log' is essential. It logs queries that take longer than `long_query_time` seconds to run.'",
+      "AGENT: '[Found] The slow query log can be enabled dynamically with `SET GLOBAL ...` or permanently in the `my.cnf` configuration file.'",
+      "AGENT: '\u2713 Research complete! Here is our two-pronged approach:'",
+      "AGENT: ''",
+      "AGENT: '## Approach 1: Real-time Check with `SHOW PROCESSLIST`'",
+      "AGENT: 'This is the first thing to do when the server is currently under high load. Log in to the MySQL client.'",
+      "Run command: mysql -u root -p",
+      "AGENT: 'mysql> SHOW FULL PROCESSLIST;",
+      "AGENT: '+------+---------+-----------------+--------+---------+------+----------------------------------+----------------------------------------------------------------------+\n| Id   | User    | Host            | db     | Command | Time | State                            | Info                                                                 |\n+------+---------+-----------------+--------+---------+------+----------------------------------+----------------------------------------------------------------------+\n| 1    | root    | localhost       | NULL   | Query   | 0    | executing                        | SHOW FULL PROCESSLIST                                                |\n| 2    | webapp  | localhost       | proddb | Query   | 350  | Sending data                     | SELECT * FROM events WHERE notes LIKE '%some text%' ORDER BY event_date |\n| 3    | webapp  | localhost       | proddb | Sleep   | 5    |                                  | NULL                                                                 |\n+------+---------+-----------------+--------+---------+------+----------------------------------+----------------------------------------------------------------------+\n3 rows in set (0.00 sec)'",
+      "AGENT: '\u274c There is our culprit! Process ID `2`, running for the `webapp` user, has been executing a single query for **350 seconds**. The query is `SELECT * FROM events WHERE notes LIKE '%some text%' ...`.'",
+      "AGENT: 'This query is almost certainly the cause of the high CPU. A leading wildcard `LIKE` (`%text`) cannot use a standard index, forcing MySQL to perform a full table scan on the `events` table, reading every single row from disk and checking it. This is extremely inefficient.'",
+      "AGENT: ''",
+      "AGENT: '## Approach 2: Historical Analysis with the Slow Query Log'",
+      "AGENT: 'The process list only shows what''s happening *right now*. To find intermittently slow queries, we need to enable the slow query log. Let''s enable it temporarily and set the threshold to 2 seconds.'",
+      "Run command (in MySQL client): SET GLOBAL slow_query_log = 'ON';",
+      "Run command (in MySQL client): SET GLOBAL long_query_time = 2;",
+      "AGENT: 'Now, let the server run for a while. After some time has passed, you can inspect the log file. First, find out where it is.'",
+      "Run command (in MySQL client): SHOW VARIABLES LIKE 'slow_query_log_file';",
+      "AGENT: '+---------------------+------------------------------------------+\n| Variable_name       | Value                                    |\n+---------------------+------------------------------------------+\n| slow_query_log_file | /var/log/mysql/mysql-slow.log            |\n+---------------------+------------------------------------------+\n1 row in set (0.01 sec)'",
+      "AGENT: 'Now, let''s inspect that file from the shell.'",
+      "Run command: sudo tail /var/log/mysql/mysql-slow.log",
+      "AGENT: '# Time: 2025-10-07T20:45:10.123456Z\n# User@Host: webapp[webapp] @ localhost []\n# Query_time: 350.123456  Lock_time: 0.000123 Rows_sent: 500000  Rows_examined: 10000000\nSET timestamp=1728343510;\nSELECT * FROM events WHERE notes LIKE '%some text%' ORDER BY event_date; '",
+      "AGENT: '\u2713 The slow query log confirms our findings. It captured the exact query, told us how long it took (`Query_time`), and, crucially, that it had to examine **10 million rows** (`Rows_examined`) to produce the result. This provides concrete evidence that this query needs to be optimized.'",
+      "AGENT: ''",
+      "AGENT: '## Solution'",
+      "AGENT: 'The immediate fix is to terminate the long-running query to restore service: `KILL 2;` in the MySQL client.'",
+      "AGENT: 'The long-term fix is to address the inefficient query. For a `LIKE` query, this often involves implementing a full-text search index (`FULLTEXT`) instead of relying on a standard B-tree index. By using these diagnostic tools, you have moved from 'the database is slow' to identifying the exact line of code that needs to be fixed. \ud83d\udcc8'"
+    ],
+    "commands": [
+      "mysql",
+      "top"
+    ],
+    "packages": {
+      "debian_ubuntu": [
+        "mysql-client",
+        "procps"
+      ],
+      "arch": [
+        "mariadb-clients",
+        "procps-ng"
+      ]
+    },
+    "related_commands": [
+      "pt-query-digest",
+      "mysqltuner"
+    ],
+    "complexity": "advanced",
+    "tags": [
+      "mysql",
+      "database",
+      "performance",
+      "troubleshooting",
+      "high-cpu",
+      "slow-query-log",
+      "dba"
+    ]
+  }
+]
